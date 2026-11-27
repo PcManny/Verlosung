@@ -4,7 +4,10 @@ import WebKit
 private let hintergrund = Color(red: 17/255, green: 17/255, blue: 17/255)
 
 func baueWebView() -> WKWebView {
-    let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+    let config = WKWebViewConfiguration()
+    // Show-Modus darf auf Vollbild schalten.
+    config.preferences.isElementFullscreenEnabled = true
+    let web = WKWebView(frame: .zero, configuration: config)
     #if os(iOS)
     web.isOpaque = false
     web.backgroundColor = UIColor(red: 17/255, green: 17/255, blue: 17/255, alpha: 1)

@@ -96,6 +96,30 @@ ol.win li:first-child.top { font-size: 22px; }
 @media (prefers-reduced-motion: reduce) { .coin.flip { animation: none; } }
 .sum { font-size: 15px; color: var(--muted); font-weight: 600; }
 .note { font-size: 13px; color: var(--muted); }
+textarea.prizes { min-height: 90px; }
+.prize { color: var(--muted); font-weight: 500; font-size: 14px; margin-right: 6px; }
+.drawn { display: flex; flex-wrap: wrap; gap: 6px; }
+.drawn span { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 14px; color: var(--muted); }
+.btn.show { background: linear-gradient(135deg, #f97316, #e11d48); border-color: transparent; color: #fff; }
+/* Glücksrad: Lichterkranz und Pfeil */
+.wheelbox { filter: drop-shadow(0 10px 24px rgba(0,0,0,.5)); }
+.pointer { border-top-color: #fff; top: -10px; border-left-width: 16px; border-right-width: 16px; border-top-width: 34px; transition: transform .08s; z-index: 2; }
+.pointer.tick { transform: translateX(-50%) rotate(-14deg); transform-origin: 50% 0; }
+/* Show-Modus (Vollbild für Fernseher/Beamer) */
+#show { position: fixed; inset: 0; z-index: 50; background: radial-gradient(ellipse at 50% 30%, #3a1d0b 0%, #111 60%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; padding: 4vh 4vw; text-align: center; }
+#show .s-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 5vw, 64px); color: var(--accent); letter-spacing: -0.02em; margin: 0; }
+#show .s-prize { font-size: clamp(18px, 2.6vw, 34px); color: var(--fg); font-weight: 600; min-height: 1.3em; }
+#show .s-name { font-family: var(--font-display); font-weight: 800; font-size: clamp(44px, 11vw, 170px); line-height: 1; color: #fff; min-height: 1.1em; overflow-wrap: anywhere; max-width: 92vw; }
+#show .s-name.rolling { color: #c9c9c9; }
+#show .s-name.win { animation: pop .6s cubic-bezier(.2, 1.6, .4, 1); text-shadow: 0 0 40px rgba(249,115,22,.6); }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+#show .s-info { color: var(--muted); font-size: clamp(14px, 1.6vw, 20px); }
+#show .s-btns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+#show .btn { font-size: clamp(18px, 2vw, 26px); padding: 14px 34px; border-radius: 999px; }
+#show .s-close { position: absolute; top: 18px; right: 22px; font-size: 15px; padding: 8px 16px; }
+#show .s-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 90vw; }
+#show .s-list span { background: rgba(255,255,255,.07); border-radius: 999px; padding: 4px 14px; color: #ddd; font-size: clamp(13px, 1.4vw, 18px); }
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; width: 100vw; height: 100vh; }
 </style>
 
 </head>
@@ -134,11 +158,24 @@ ol.win li:first-child.top { font-size: 22px; }
   <section class="panel" id="p-draw" role="tabpanel" aria-labelledby="t-draw">
     <h2>Verlosung</h2>
     <p class="note" style="margin:0">Kostenlose Verlosung unter Freunden. Keine Teilnahmegebühr, kein Kauf nötig.</p>
+    <div class="field">
+      <label for="prizes">Preise (freiwillig, einer pro Zeile – dann wird pro Preis ein Gewinner gezogen)</label>
+      <textarea id="prizes" class="prizes" spellcheck="false" placeholder="z. B.&#10;1. Preis: Präsentkorb&#10;2. Preis: Kinogutschein"></textarea>
+    </div>
     <div class="row">
-      <div class="field"><label for="winners">Anzahl Gewinner</label><input type="number" id="winners" min="1" value="1"></div>
+      <div class="field" id="winners-field"><label for="winners">Anzahl Gewinner</label><input type="number" id="winners" min="1" value="1"></div>
       <button class="btn" id="btn-draw">Gewinner ziehen</button>
+      <button class="btn show" id="btn-show">★ Show-Modus</button>
       <button class="btn ghost" id="btn-order">Zufällige Reihenfolge</button>
-      <label class="check"><input type="checkbox" id="use-wheel" checked> Mit Glücksrad ziehen</label>
+    </div>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="use-wheel"> Mit Glücksrad ziehen</label>
+      <label class="check"><input type="checkbox" id="no-repeat" checked> Gezogene nicht noch einmal ziehen</label>
+      <label class="check"><input type="checkbox" id="sound" checked> Ton</label>
+    </div>
+    <div id="drawn-box" hidden>
+      <div class="meta"><span class="lbl">Bisher gezogen (<span id="drawn-count">0</span>) – sind aus dem Topf</span><button class="btn ghost small" id="btn-putback">Alle zurück in den Topf</button></div>
+      <div class="drawn" id="drawn"></div>
     </div>
     <div class="result" id="res-draw" hidden aria-live="polite">
       <div class="meta"><strong id="res-draw-title" style="color:var(--fg)"></strong><button class="btn ghost small" id="copy-draw">Kopieren</button></div>
@@ -217,6 +254,17 @@ ol.win li:first-child.top { font-size: 22px; }
     </div>
     <div class="sum" id="coin-tally" style="text-align:center"></div>
   </section>
+
+  <div id="show" hidden role="dialog" aria-label="Show-Modus">
+    <button class="btn ghost s-close" id="s-close">Schließen (Esc)</button>
+    <p class="s-title" id="s-title">Verlosung</p>
+    <div class="s-prize" id="s-prize"></div>
+    <div class="s-name" id="s-name" aria-live="polite"></div>
+    <div class="s-info" id="s-info"></div>
+    <div class="s-btns"><button class="btn" id="s-draw">Ziehen</button></div>
+    <div class="s-list" id="s-list"></div>
+  </div>
+  <canvas id="confetti" hidden></canvas>
 
   <p class="note" style="text-align:center;margin:0">Zufall kommt aus dem Zufallsgenerator des Browsers (crypto), ohne Verzerrung bei der Auswahl.</p>
 </div>
@@ -298,24 +346,59 @@ ol.win li:first-child.top { font-size: 22px; }
 
   /* ---------- Auslosung ---------- */
   var drawText = '';
-  function showDraw(title, items) {
+  function showDraw(title, items, pz) {
+    pz = pz || [];
     $('#res-draw').hidden = false;
     $('#res-draw-title').textContent = title;
     var ol = $('#res-draw-list'); ol.innerHTML = '';
     items.forEach(function (n, i) {
-      var li = document.createElement('li'); li.textContent = n;
+      var li = document.createElement('li');
+      if (pz[i] && items.length > 1) { var sp = document.createElement('span'); sp.className = 'prize'; sp.textContent = pz[i].replace(/:\s*$/, '') + ':'; li.appendChild(sp); }
+      li.appendChild(document.createTextNode(n));
       if (i === 0 && items.length === 1) li.className = 'top';
       ol.appendChild(li);
     });
-    drawText = items.map(function (n, i) { return (i + 1) + '. ' + n; }).join('\n');
+    drawText = items.map(function (n, i) { return (pz[i] ? pz[i].replace(/:\s*$/, '') + ': ' : (i + 1) + '. ') + n; }).join('\n');
   }
-  $('#btn-draw').onclick = function () {
+  /* ---------- Topf, Preise, bisher gezogen ---------- */
+  var drawnList = [];
+  try { drawnList = JSON.parse(localStorage.getItem('zg-drawn') || '[]'); } catch (e) {}
+  function prizes() { return $('#prizes').value.split(/\n/).map(function (s) { return s.trim(); }).filter(Boolean); }
+  function pool() {
     var names = parse();
-    if (!names.length) { showDraw('Die Liste ist leer.', []); return; }
-    var k = clamp(int('#winners', 1), 1, names.length);
-    $('#winners').value = k;
-    if ($('#use-wheel').checked) { wheelDraw(k); return; }
-    showDraw(k === 1 ? 'Gewinner' : k + ' Gewinner (in Ziehungsreihenfolge)', shuffle(names).slice(0, k));
+    if (!$('#no-repeat').checked) return names;
+    var used = {}; drawnList.forEach(function (n) { used[n] = (used[n] || 0) + 1; });
+    return names.filter(function (n) { if (used[n]) { used[n]--; return false; } return true; });
+  }
+  function addDrawn(names) {
+    if (!$('#no-repeat').checked) return;
+    drawnList = drawnList.concat(names); saveDrawn();
+  }
+  function saveDrawn() {
+    try { localStorage.setItem('zg-drawn', JSON.stringify(drawnList)); } catch (e) {}
+    $('#drawn-box').hidden = drawnList.length === 0;
+    $('#drawn-count').textContent = drawnList.length;
+    var box = $('#drawn'); box.innerHTML = '';
+    drawnList.forEach(function (n) { var sp = document.createElement('span'); sp.textContent = n; box.appendChild(sp); });
+  }
+  $('#btn-putback').onclick = function () { drawnList = []; saveDrawn(); };
+  function onPrizes() {
+    var p = prizes();
+    $('#winners-field').hidden = p.length > 0;
+    try { localStorage.setItem('zg-prizes', $('#prizes').value); } catch (e) {}
+  }
+  $('#prizes').addEventListener('input', onPrizes);
+  function label(i, total, pz) { return pz[i] ? pz[i] : (total > 1 ? (i + 1) + '. Gewinner' : 'Gewinner'); }
+
+  $('#btn-draw').onclick = function () {
+    var names = pool(), pz = prizes();
+    if (!names.length) { showDraw(parse().length ? 'Alle wurden schon gezogen – „Alle zurück in den Topf“ drücken.' : 'Die Liste ist leer.', []); return; }
+    var k = pz.length ? Math.min(pz.length, names.length) : clamp(int('#winners', 1), 1, names.length);
+    if (!pz.length) $('#winners').value = k;
+    if ($('#use-wheel').checked) { wheelDraw(k, names, pz); return; }
+    var won = shuffle(names).slice(0, k);
+    addDrawn(won); fanfare(); confetti();
+    showDraw(k === 1 ? (pz[0] || 'Gewinner') : (pz.length ? 'Die Gewinner der Preise' : k + ' Gewinner (in Ziehungsreihenfolge)'), won, pz);
   };
   $('#btn-order').onclick = function () {
     var names = parse();
@@ -326,7 +409,7 @@ ol.win li:first-child.top { font-size: 22px; }
 
   /* ---------- Glücksrad ---------- */
   var cv = $('#wheel'), rot = 0, spinning = false;
-  var PAL = ['#0f7c78', '#c2410c', '#3b5ba9', '#8a4fa3', '#4d7c0f', '#b4233c', '#a16207', '#0e7490'];
+  var PAL = ['#f97316', '#2563eb', '#16a34a', '#db2777', '#9333ea', '#0891b2', '#e11d48', '#ca8a04'];
   function segColor(i, n) {
     var c = i % PAL.length;
     if (i === n - 1 && n > 1 && c === 0) c = 4;
@@ -364,9 +447,20 @@ ol.win li:first-child.top { font-size: 22px; }
         c.fillText(label, R - 14, 0); c.restore();
       }
     });
-    c.beginPath(); c.arc(cx, cy, R * 0.09, 0, 7); c.fillStyle = surface; c.fill();
-    c.strokeStyle = line; c.lineWidth = 2; c.stroke();
+    // Rand mit Lichtern
+    c.beginPath(); c.arc(cx, cy, R + 3, 0, 7); c.strokeStyle = '#2b2b2b'; c.lineWidth = 8; c.stroke();
+    var bulbs = 24;
+    for (var b = 0; b < bulbs; b++) {
+      var a = b / bulbs * 2 * Math.PI;
+      c.beginPath(); c.arc(cx + Math.cos(a) * (R + 3), cy + Math.sin(a) * (R + 3), 2.6, 0, 7);
+      c.fillStyle = (b + lightPhase) % 2 ? '#fde68a' : '#7c5a1e'; c.fill();
+    }
+    var g = c.createRadialGradient(cx - R * 0.04, cy - R * 0.04, 1, cx, cy, R * 0.13);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#9ca3af');
+    c.beginPath(); c.arc(cx, cy, R * 0.12, 0, 7); c.fillStyle = g; c.fill();
+    c.strokeStyle = '#111'; c.lineWidth = 2; c.stroke();
   }
+  var lightPhase = 0;
   window.addEventListener('resize', drawWheel);
   if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawWheel);
 
@@ -379,12 +473,16 @@ ol.win li:first-child.top { font-size: 22px; }
     var desired = ((-Math.PI / 2 - (w + 0.5 + jitter) * seg) % TAU + TAU) % TAU;
     var start = rot;
     var delta = (((desired - start) % TAU) + TAU) % TAU + TAU * (RM ? 1 : 5 + rnd(3));
-    var dur = RM ? 600 : 5200, t0 = performance.now();
+    var dur = RM ? 600 : 5200, t0 = performance.now(), lastSeg = 0;
     function step(t) {
       var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 4);
-      rot = start + delta * e; drawWheel();
+      rot = start + delta * e;
+      var segNow = Math.floor((rot - start) / seg);
+      if (segNow !== lastSeg) { lastSeg = segNow; tick(); lightPhase++; }
+      drawWheel();
       if (p < 1) { requestAnimationFrame(step); return; }
       spinning = false; $('#btn-spin').disabled = false; $('#btn-draw').disabled = false;
+      fanfare(); confetti();
       done(w);
     }
     requestAnimationFrame(step);
@@ -405,9 +503,9 @@ ol.win li:first-child.top { font-size: 22px; }
     });
   };
   // Verlosung mit Glücksrad: wechselt zum Rad und dreht pro Gewinner einmal
-  function wheelDraw(k) {
+  function wheelDraw(k, from, pz) {
     if (spinning) return;
-    var pool = parse(); if (!pool.length) return;
+    var pool = from.slice(); if (!pool.length) return;
     k = clamp(k, 1, pool.length);
     showTab('wheel');
     wheelPool = pool.slice();
@@ -420,15 +518,16 @@ ol.win li:first-child.top { font-size: 22px; }
           if (idx >= 0) rot = -Math.PI / 2 - (idx + 0.5) * (2 * Math.PI / pool.length);
         }
         wheelPool = null; drawWheel();
-        var title = k === 1 ? 'Gewinner' : k + ' Gewinner (in Ziehungsreihenfolge)';
-        showDraw(title, won);
+        var title = k === 1 ? (pz[0] || 'Gewinner') : k + ' Gewinner (in Ziehungsreihenfolge)';
+        addDrawn(won);
+        showDraw(title, won, pz);
         $('#wheel-winner').textContent = k === 1 ? won[0] : won.map(function (x, i) { return (i + 1) + '. ' + x; }).join('  ·  ');
         return;
       }
       spinOnce(wheelPool, function (w) {
         var name = wheelPool[w];
         won.push(name); winHist.unshift(name); showHist();
-        $('#wheel-winner').textContent = (k > 1 ? won.length + '. ' : '') + name;
+        $('#wheel-winner').textContent = (pz[won.length - 1] ? pz[won.length - 1] + ': ' : (k > 1 ? won.length + '. ' : '')) + name;
         wheelPool.splice(w, 1);
         setTimeout(next, RM ? 0 : 1100);
       });
@@ -529,7 +628,108 @@ ol.win li:first-child.top { font-size: 22px; }
     }, RM ? 0 : 700);
   };
 
+  /* ---------- Ton (wird im Gerät erzeugt, keine Dateien) ---------- */
+  var actx = null;
+  function ac() {
+    if (!$('#sound').checked) return null;
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function tone(freq, start, dur, type, vol) {
+    var a = ac(); if (!a) return;
+    var o = a.createOscillator(), g = a.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.15, a.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + start + dur);
+    o.connect(g); g.connect(a.destination); o.start(a.currentTime + start); o.stop(a.currentTime + start + dur + 0.05);
+  }
+  function tick() { tone(1400, 0, 0.03, 'square', 0.05); var p = $('.pointer'); if (p) { p.classList.add('tick'); setTimeout(function () { p.classList.remove('tick'); }, 60); } }
+  function drum(ms) { // Trommelwirbel: viele kurze, leise Schläge
+    var a = ac(); if (!a) return;
+    for (var t = 0; t < ms / 1000; t += 0.045) {
+      var len = a.sampleRate * 0.04, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      var src = a.createBufferSource(), g = a.createGain(); src.buffer = buf;
+      g.gain.value = 0.05 + 0.12 * (t / (ms / 1000));
+      src.connect(g); g.connect(a.destination); src.start(a.currentTime + t);
+    }
+  }
+  function fanfare() { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, i * 0.12, i === 3 ? 0.7 : 0.18, 'triangle', 0.18); }); }
+
+  /* ---------- Konfetti ---------- */
+  function confetti() {
+    if (RM) return;
+    var cvs = $('#confetti'), x = cvs.getContext('2d'); cvs.hidden = false;
+    var W = cvs.width = innerWidth, H = cvs.height = innerHeight, parts = [];
+    var COLS = ['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ec4899', '#a855f7', '#ffffff'];
+    for (var i = 0; i < 160; i++) parts.push({ x: W / 2 + (Math.random() - 0.5) * W * 0.3, y: H * 0.35, vx: (Math.random() - 0.5) * 16,
+      vy: -Math.random() * 15 - 4, r: Math.random() * 6 + 4, c: COLS[i % COLS.length], a: Math.random() * 6, va: (Math.random() - 0.5) * 0.3 });
+    var t0 = performance.now();
+    (function frame(t) {
+      x.clearRect(0, 0, W, H);
+      parts.forEach(function (p) { p.vy += 0.35; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.a += p.va;
+        x.save(); x.translate(p.x, p.y); x.rotate(p.a); x.fillStyle = p.c; x.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); x.restore(); });
+      if (t - t0 < 3500) requestAnimationFrame(frame); else { x.clearRect(0, 0, W, H); cvs.hidden = true; }
+    })(t0);
+  }
+
+  /* ---------- Show-Modus ---------- */
+  var showBusy = false, showWon = [];
+  function showInfo() {
+    var left = pool().length, pz = prizes(), next = pz[showWon.length];
+    $('#s-prize').textContent = pz.length ? (next ? 'Jetzt geht es um: ' + next : 'Alle Preise sind verlost!') : '';
+    $('#s-info').textContent = left + ' im Topf' + (left === 1 ? '' : '') + ' · Leertaste = ziehen';
+    $('#s-draw').disabled = !left || (pz.length > 0 && !next);
+    var lst = $('#s-list'); lst.innerHTML = '';
+    showWon.forEach(function (w) { var sp = document.createElement('span'); sp.textContent = w; lst.appendChild(sp); });
+  }
+  function openShow() {
+    showWon = []; $('#show').hidden = false;
+    $('#s-name').textContent = '?'; $('#s-name').className = 's-name';
+    showInfo();
+    var el = document.documentElement;
+    try { if (el.requestFullscreen) el.requestFullscreen().catch(function () {}); else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen(); } catch (e) {}
+  }
+  function closeShow() {
+    $('#show').hidden = true;
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+  }
+  function showDrawOne() {
+    if (showBusy) return;
+    var names = pool(), pz = prizes();
+    if (!names.length || (pz.length && showWon.length >= pz.length)) return;
+    showBusy = true; $('#s-draw').disabled = true;
+    var winner = names[rnd(names.length)], el = $('#s-name');
+    var dur = RM ? 300 : 4000, t0 = performance.now(), delay = 50;
+    el.className = 's-name rolling'; drum(dur);
+    (function roll() {
+      var t = performance.now() - t0;
+      if (t < dur) {
+        el.textContent = names[rnd(names.length)];
+        delay = 50 + 300 * Math.pow(t / dur, 2);
+        setTimeout(roll, delay); return;
+      }
+      el.textContent = winner; el.className = 's-name win';
+      var label = pz[showWon.length] ? pz[showWon.length].replace(/:\s*$/, '') + ': ' : '';
+      showWon.push(label + winner); addDrawn([winner]);
+      fanfare(); confetti();
+      showBusy = false; showInfo();
+    })();
+  }
+  $('#btn-show').onclick = openShow;
+  $('#s-close').onclick = closeShow;
+  $('#s-draw').onclick = showDrawOne;
+  document.addEventListener('keydown', function (e) {
+    if ($('#show').hidden) return;
+    if (e.key === 'Escape') closeShow();
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); showDrawOne(); }
+  });
+  document.addEventListener('fullscreenchange', function () { if (!document.fullscreenElement && !$('#show').hidden) { /* Vollbild verlassen: Show bleibt offen */ } });
+
   /* ---------- Start ---------- */
+  try { var sp = localStorage.getItem('zg-prizes'); if (sp) $('#prizes').value = sp; } catch (e) {}
+  onPrizes(); saveDrawn();
   var saved = null;
   try { saved = localStorage.getItem('zg-list'); } catch (e) {}
   list.value = saved !== null ? saved : EXAMPLE.join('\n');

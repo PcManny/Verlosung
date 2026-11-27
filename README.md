@@ -12,6 +12,10 @@ Praktisch für Tombola, Spieleabend, Schule, Verein oder die Frage „Wer spült
 - **Zufallszahlen:** von–bis, auch mehrere auf einmal
 - **Würfeln:** bis zu 20 Würfel
 - **Münzwurf:** Kopf oder Zahl
+- **Glücksrad:** bunt, mit Lichterkranz und Tick-Ton
+- **Show-Modus:** Vollbild mit Trommelwirbel, ausrollendem Namen und Konfetti – ideal für die Bühne (Leertaste = ziehen, Esc = Ende)
+- **Preise:** Preise eintragen, pro Preis wird ein Gewinner gezogen
+- **Keine Doppelten:** Wer schon gezogen wurde, kann auf Wunsch nicht noch einmal gezogen werden – mit Liste „Bisher gezogen“
 
 Die Namensliste wird auf dem Gerät gemerkt. Es gibt kein Konto, keine Werbung und kein Abo.
 
@@ -19,10 +23,12 @@ Die Namensliste wird auf dem Gerät gemerkt. Es gibt kein Konto, keine Werbung u
 
 Voraussetzung: **macOS 15 oder neuer**, Apple-Chip oder Intel.
 
-1. Unter **Releases** (rechts auf dieser Seite) `Verlosung.zip` laden und doppelklicken.
-2. `Verlosung.app` in den Ordner **Programme** ziehen.
-3. Beim ersten Öffnen warnt macOS, weil die App nicht bei Apple beglaubigt ist (kostenloses Hobby-Projekt).
-   Dann: *Systemeinstellungen → Datenschutz & Sicherheit → „Dennoch öffnen“*.
+1. Unter **Releases** (rechts auf dieser Seite) **`Verlosung.dmg`** laden und doppelklicken.
+2. Im Fenster, das sich öffnet, `Verlosung` auf den Ordner **Programme** ziehen.
+3. Verlosung aus dem Ordner Programme starten und beim Hinweis auf **„Öffnen“** klicken.
+
+Alternativ gibt es `Verlosung.zip` (praktisch zum Weiterschicken): doppelklicken und `Verlosung.app` in **Programme** ziehen.
+Die App ist mit einer Apple-Developer-ID signiert und bei Apple beglaubigt (notarisiert).
 
 Für iPhone/iPad: das Projekt in Xcode öffnen und mit dem eigenen Apple-Account auf das Gerät laden.
 
@@ -44,6 +50,7 @@ Entstanden mit Hilfe von Claude (KI-Assistent von Anthropic).
 
 ## English summary
 
-A small free random generator for Mac and iPhone/iPad: draw names, build teams, random numbers, dice and coin flip.
-No account, no ads. The interface is in German. Download `Verlosung.zip` from **Releases** (macOS 15+), move it to
-Applications and allow it under *System Settings → Privacy & Security → Open Anyway*.
+A small free random generator for Mac and iPhone/iPad: draw names, build teams, random numbers, dice, coin flip,
+prize wheel and a full-screen show mode with drum roll and confetti. No account, no ads. The interface is in German.
+Download `Verlosung.dmg` (or `Verlosung.zip`) from **Releases** (macOS 15+) and drag the app to Applications.
+The app is signed with a Developer ID and notarized.
