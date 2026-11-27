@@ -30,7 +30,11 @@ Voraussetzung: **macOS 15 oder neuer**, Apple-Chip oder Intel.
 Alternativ gibt es `Verlosung.zip` (praktisch zum Weiterschicken): doppelklicken und `Verlosung.app` in **Programme** ziehen.
 Die App ist mit einer Apple-Developer-ID signiert und bei Apple beglaubigt (notarisiert).
 
-Für iPhone/iPad: das Projekt in Xcode öffnen und mit dem eigenen Apple-Account auf das Gerät laden.
+## Auf dem Handy (iPhone, iPad, Android)
+
+Einfach diesen Link öffnen: **https://pcmanny.github.io/Verlosung/**
+
+Tipp: Über „Teilen“ → **„Zum Home-Bildschirm“** wird daraus ein App-Symbol. Funktioniert danach auch ohne Internet.
 
 ## Selbst bauen
 
@@ -50,7 +54,7 @@ Entstanden mit Hilfe von Claude (KI-Assistent von Anthropic).
 
 ## English summary
 
-A small free random generator for Mac and iPhone/iPad: draw names, build teams, random numbers, dice, coin flip,
+A small free random generator for Mac and iPhone/iPad (web version for any phone: https://pcmanny.github.io/Verlosung/): draw names, build teams, random numbers, dice, coin flip,
 prize wheel and a full-screen show mode with drum roll and confetti. No account, no ads. The interface is in German.
 Download `Verlosung.dmg` (or `Verlosung.zip`) from **Releases** (macOS 15+) and drag the app to Applications.
 The app is signed with a Developer ID and notarized.
