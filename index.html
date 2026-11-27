@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<title>Zufallsgenerator</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Verlosung">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#111111">
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: eine Arbeitsfläche mit Reitern; Liste oben (gemeinsam für Auslosung, Rad, Teams), Ergebnis direkt darunter */
+:root {
+  color-scheme: dark;
+  --bg: #111111;
+  --surface: #1a1a1a;
+  --fg: #e5e5e5;
+  --muted: #8a8a8a;
+  --line: #2a2a2a;
+  --accent: #f97316;
+  --accent-fg: #111111;
+  --accent-soft: #2b1c10;
+  --warn: #f97316;
+  --font-display: 'Bricolage Grotesque', 'Trebuchet MS', system-ui, sans-serif;
+  --font-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 7vw, 40px); line-height: 1.05; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 20px; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 6px 0 0; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: 0 0 auto; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tab:hover { color: var(--fg); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+label, .lbl { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+input[type=number], select, textarea {
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-width: 0;
+}
+input[type=number] { width: 7.5rem; font-variant-numeric: tabular-nums; }
+textarea { width: 100%; min-height: 150px; resize: vertical; line-height: 1.45; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn { font: inherit; font-weight: 700; border-radius: 6px; padding: 10px 18px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); }
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); font-weight: 600; }
+.btn.ghost:hover { border-color: var(--accent); }
+.btn.small { padding: 6px 12px; font-size: 14px; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 15px; color: var(--fg); font-weight: 500; letter-spacing: 0; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; font-size: 14px; color: var(--muted); }
+.warn { color: var(--warn); font-weight: 600; }
+.result { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.result[hidden] { display: none; }
+ol.win { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: p; }
+ol.win li { counter-increment: p; display: flex; gap: 12px; align-items: baseline; padding: 8px 12px; background: var(--accent-soft); border-radius: 6px; font-weight: 600; overflow-wrap: anywhere; }
+ol.win li::before { content: counter(p); font-family: var(--font-display); font-weight: 800; color: var(--accent); min-width: 1.6em; font-variant-numeric: tabular-nums; }
+ol.win li:first-child.top { font-size: 22px; }
+.teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.team { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--bg); min-width: 0; }
+.team h3 { font-family: var(--font-display); font-size: 16px; margin: 0 0 6px; color: var(--accent); }
+.team ul { margin: 0; padding-left: 18px; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font-family: var(--font-display); font-weight: 800; font-size: 26px; min-width: 2.2em; text-align: center; padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--fg); font-variant-numeric: tabular-nums; }
+.chip.bonus { background: transparent; border: 2px solid var(--accent); }
+.chip.die { border-radius: 12px; }
+.group-lbl { font-size: 13px; font-weight: 600; color: var(--muted); width: 100%; }
+.wheelbox { position: relative; width: min(100%, 420px); margin: 0 auto; aspect-ratio: 1; }
+#wheel { width: 100%; height: 100%; display: block; }
+.pointer { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 28px solid var(--fg); filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+.winner { text-align: center; font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 7vw, 38px); line-height: 1.1; overflow-wrap: anywhere; min-height: 1.2em; }
+.hist { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.coin { width: 130px; height: 130px; border-radius: 50%; margin: 0 auto; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 24px; background: var(--accent-soft); border: 6px solid var(--accent); color: var(--fg); }
+.coin.flip { animation: flip 0.7s ease-in-out; }
+@keyframes flip { 0% { transform: rotateY(0); } 100% { transform: rotateY(1080deg); } }
+@media (prefers-reduced-motion: reduce) { .coin.flip { animation: none; } }
+.sum { font-size: 15px; color: var(--muted); font-weight: 600; }
+.note { font-size: 13px; color: var(--muted); }
+textarea.prizes { min-height: 90px; }
+.prize { color: var(--muted); font-weight: 500; font-size: 14px; margin-right: 6px; }
+.drawn { display: flex; flex-wrap: wrap; gap: 6px; }
+.drawn span { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 14px; color: var(--muted); }
+.btn.show { background: linear-gradient(135deg, #f97316, #e11d48); border-color: transparent; color: #fff; }
+/* Glücksrad: Lichterkranz und Pfeil */
+.wheelbox { filter: drop-shadow(0 10px 24px rgba(0,0,0,.5)); }
+.pointer { border-top-color: #fff; top: -10px; border-left-width: 16px; border-right-width: 16px; border-top-width: 34px; transition: transform .08s; z-index: 2; }
+.pointer.tick { transform: translateX(-50%) rotate(-14deg); transform-origin: 50% 0; }
+/* Show-Modus (Vollbild für Fernseher/Beamer) */
+#show { position: fixed; inset: 0; z-index: 50; background: radial-gradient(ellipse at 50% 30%, #3a1d0b 0%, #111 60%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; padding: 4vh 4vw; text-align: center; }
+#show .s-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 5vw, 64px); color: var(--accent); letter-spacing: -0.02em; margin: 0; }
+#show .s-prize { font-size: clamp(18px, 2.6vw, 34px); color: var(--fg); font-weight: 600; min-height: 1.3em; }
+#show .s-name { font-family: var(--font-display); font-weight: 800; font-size: clamp(44px, 11vw, 170px); line-height: 1; color: #fff; min-height: 1.1em; overflow-wrap: anywhere; max-width: 92vw; }
+#show .s-name.rolling { color: #c9c9c9; }
+#show .s-name.win { animation: pop .6s cubic-bezier(.2, 1.6, .4, 1); text-shadow: 0 0 40px rgba(249,115,22,.6); }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+#show .s-info { color: var(--muted); font-size: clamp(14px, 1.6vw, 20px); }
+#show .s-btns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+#show .btn { font-size: clamp(18px, 2vw, 26px); padding: 14px 34px; border-radius: 999px; }
+#show .s-close { position: absolute; top: 18px; right: 22px; font-size: 15px; padding: 8px 16px; }
+#show .s-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 90vw; }
+#show .s-list span { background: rgba(255,255,255,.07); border-radius: 999px; padding: 4px 14px; color: #ddd; font-size: clamp(13px, 1.4vw, 18px); }
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; width: 100vw; height: 100vh; }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Zufallsgenerator</h1>
+    <p class="sub">Verlosung, Glücksrad, Teams, Zufallszahlen, Würfel und Münze. Läuft komplett im Browser, nichts wird gespeichert oder gesendet.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Generator wählen">
+    <button class="tab" role="tab" id="t-draw" data-tab="draw" aria-selected="true">Verlosung</button>
+    <button class="tab" role="tab" id="t-wheel" data-tab="wheel" aria-selected="false">Glücksrad</button>
+    <button class="tab" role="tab" id="t-teams" data-tab="teams" aria-selected="false">Teams</button>
+    <button class="tab" role="tab" id="t-nums" data-tab="nums" aria-selected="false">Zahlen</button>
+    <button class="tab" role="tab" id="t-dice" data-tab="dice" aria-selected="false">Würfel &amp; Münze</button>
+  </div>
+
+  <section class="panel" id="listpanel">
+    <div>
+      <h2>Teilnehmer</h2>
+      <p class="note" style="margin:0">Einer pro Zeile oder mit Komma getrennt. Die Beispielnamen kannst du einfach überschreiben.</p>
+    </div>
+    <textarea id="list" aria-label="Teilnehmerliste" spellcheck="false"></textarea>
+    <div class="meta">
+      <span><strong id="count">0</strong> Teilnehmer <span id="dupinfo" class="warn" hidden></span></span>
+      <span class="row" style="gap:8px">
+        <button class="btn ghost small" id="btn-dedupe" hidden>Dubletten entfernen</button>
+        <button class="btn ghost small" id="btn-sort">Sortieren</button>
+        <button class="btn ghost small" id="btn-example">Beispiel</button>
+        <button class="btn ghost small" id="btn-clear">Leeren</button>
+      </span>
+    </div>
+  </section>
+
+  <section class="panel" id="p-draw" role="tabpanel" aria-labelledby="t-draw">
+    <h2>Verlosung</h2>
+    <p class="note" style="margin:0">Kostenlose Verlosung unter Freunden. Keine Teilnahmegebühr, kein Kauf nötig.</p>
+    <div class="field">
+      <label for="prizes">Preise (freiwillig, einer pro Zeile – dann wird pro Preis ein Gewinner gezogen)</label>
+      <textarea id="prizes" class="prizes" spellcheck="false" placeholder="z. B.&#10;1. Preis: Präsentkorb&#10;2. Preis: Kinogutschein"></textarea>
+    </div>
+    <div class="row">
+      <div class="field" id="winners-field"><label for="winners">Anzahl Gewinner</label><input type="number" id="winners" min="1" value="1"></div>
+      <button class="btn" id="btn-draw">Gewinner ziehen</button>
+      <button class="btn show" id="btn-show">★ Show-Modus</button>
+      <button class="btn ghost" id="btn-order">Zufällige Reihenfolge</button>
+    </div>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="use-wheel"> Mit Glücksrad ziehen</label>
+      <label class="check"><input type="checkbox" id="no-repeat" checked> Gezogene nicht noch einmal ziehen</label>
+      <label class="check"><input type="checkbox" id="sound" checked> Ton</label>
+    </div>
+    <div id="drawn-box" hidden>
+      <div class="meta"><span class="lbl">Bisher gezogen (<span id="drawn-count">0</span>) – sind aus dem Topf</span><button class="btn ghost small" id="btn-putback">Alle zurück in den Topf</button></div>
+      <div class="drawn" id="drawn"></div>
+    </div>
+    <div class="result" id="res-draw" hidden aria-live="polite">
+      <div class="meta"><strong id="res-draw-title" style="color:var(--fg)"></strong><button class="btn ghost small" id="copy-draw">Kopieren</button></div>
+      <ol class="win" id="res-draw-list"></ol>
+    </div>
+  </section>
+
+  <section class="panel" id="p-wheel" role="tabpanel" aria-labelledby="t-wheel" hidden>
+    <h2>Glücksrad</h2>
+    <div class="wheelbox"><canvas id="wheel" aria-label="Glücksrad"></canvas><div class="pointer"></div></div>
+    <div class="winner" id="wheel-winner" aria-live="polite"></div>
+    <div class="row" style="justify-content:center">
+      <button class="btn" id="btn-spin">Rad drehen</button>
+      <label class="check"><input type="checkbox" id="remove-winner"> Gewinner danach aus der Liste entfernen</label>
+    </div>
+    <ol class="hist" id="wheel-hist" hidden></ol>
+  </section>
+
+  <section class="panel" id="p-teams" role="tabpanel" aria-labelledby="t-teams" hidden>
+    <h2>Teams bilden</h2>
+    <div class="row">
+      <div class="field">
+        <span class="lbl">Aufteilen nach</span>
+        <span class="row" style="gap:14px">
+          <label class="check"><input type="radio" name="tmode" value="count" checked> Anzahl Teams</label>
+          <label class="check"><input type="radio" name="tmode" value="size"> Teamgröße</label>
+        </span>
+      </div>
+      <div class="field"><label for="tval">Wert</label><input type="number" id="tval" min="1" value="2"></div>
+      <button class="btn" id="btn-teams">Teams losen</button>
+    </div>
+    <div class="result" id="res-teams" hidden aria-live="polite">
+      <div class="meta"><span id="res-teams-title"></span><button class="btn ghost small" id="copy-teams">Kopieren</button></div>
+      <div class="teams" id="res-teams-grid"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-nums" role="tabpanel" aria-labelledby="t-nums" hidden>
+    <h2>Zufallszahlen</h2>
+    <div class="row">
+      <div class="field"><label for="nmin">Von</label><input type="number" id="nmin" value="1"></div>
+      <div class="field"><label for="nmax">Bis</label><input type="number" id="nmax" value="100"></div>
+      <div class="field"><label for="ncount">Anzahl</label><input type="number" id="ncount" min="1" max="1000" value="1"></div>
+    </div>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="nuniq"> Ohne Wiederholung</label>
+      <label class="check"><input type="checkbox" id="nsort"> Sortieren</label>
+    </div>
+    <div class="row">
+      <button class="btn" id="btn-nums">Zahlen ziehen</button>
+      <button class="btn ghost" id="btn-lotto">Lotto 6 aus 49</button>
+      <button class="btn ghost" id="btn-euro">Eurojackpot</button>
+    </div>
+    <div class="result" id="res-nums" hidden aria-live="polite">
+      <div class="chips" id="res-nums-chips"></div>
+      <p class="warn" id="nums-err" hidden></p>
+    </div>
+  </section>
+
+  <section class="panel" id="p-dice" role="tabpanel" aria-labelledby="t-dice" hidden>
+    <h2>Würfel</h2>
+    <div class="row">
+      <div class="field"><label for="dcount">Anzahl Würfel</label><input type="number" id="dcount" min="1" max="20" value="2"></div>
+      <div class="field"><label for="dsides">Seiten</label>
+        <select id="dsides"><option>4</option><option selected>6</option><option>8</option><option>10</option><option>12</option><option>20</option><option>100</option></select>
+      </div>
+      <button class="btn" id="btn-dice">Würfeln</button>
+    </div>
+    <div class="chips" id="dice-chips" aria-live="polite"></div>
+    <div class="sum" id="dice-sum"></div>
+    <hr style="border:0;border-top:1px solid var(--line);width:100%;margin:6px 0">
+    <h2>Münze</h2>
+    <div class="coin" id="coin" aria-live="polite">?</div>
+    <div class="row" style="justify-content:center">
+      <button class="btn" id="btn-coin">Münze werfen</button>
+    </div>
+    <div class="sum" id="coin-tally" style="text-align:center"></div>
+  </section>
+
+  <div id="show" hidden role="dialog" aria-label="Show-Modus">
+    <button class="btn ghost s-close" id="s-close">Schließen (Esc)</button>
+    <p class="s-title" id="s-title">Verlosung</p>
+    <div class="s-prize" id="s-prize"></div>
+    <div class="s-name" id="s-name" aria-live="polite"></div>
+    <div class="s-info" id="s-info"></div>
+    <div class="s-btns"><button class="btn" id="s-draw">Ziehen</button></div>
+    <div class="s-list" id="s-list"></div>
+  </div>
+  <canvas id="confetti" hidden></canvas>
+
+  <p class="note" style="text-align:center;margin:0">Zufall kommt aus dem Zufallsgenerator des Browsers (crypto), ohne Verzerrung bei der Auswahl.</p>
+</div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var EXAMPLE = ['Anna', 'Ben', 'Clara', 'David', 'Emma', 'Felix', 'Greta', 'Hannes'];
+
+  /* ---------- Zufall ---------- */
+  function rnd(n) {
+    if (n <= 1) return 0;
+    var lim = Math.floor(4294967296 / n) * n, a = new Uint32Array(1);
+    do { crypto.getRandomValues(a); } while (a[0] >= lim);
+    return a[0] % n;
+  }
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = rnd(i + 1); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function int(el, def) { var v = parseInt($(el).value, 10); return isNaN(v) ? def : v; }
+
+  /* ---------- Liste ---------- */
+  var list = $('#list');
+  function parse() {
+    var t = list.value;
+    var parts = /\n/.test(t) ? t.split(/\n/) : t.split(/[,;]/);
+    return parts.map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function dupCount(names) {
+    var seen = {}, d = 0;
+    names.forEach(function (n) { var k = n.toLowerCase(); if (seen[k]) d++; else seen[k] = 1; });
+    return d;
+  }
+  function onList() {
+    var names = parse(), d = dupCount(names);
+    $('#count').textContent = names.length;
+    $('#dupinfo').hidden = d === 0;
+    $('#dupinfo').textContent = '· ' + d + ' Dublette' + (d === 1 ? '' : 'n');
+    $('#btn-dedupe').hidden = d === 0;
+    try { localStorage.setItem('zg-list', list.value); } catch (e) {}
+    drawWheel();
+  }
+  function setList(names) { list.value = names.join('\n'); onList(); }
+  list.addEventListener('input', onList);
+  $('#btn-dedupe').onclick = function () {
+    var seen = {}, out = [];
+    parse().forEach(function (n) { var k = n.toLowerCase(); if (!seen[k]) { seen[k] = 1; out.push(n); } });
+    setList(out);
+  };
+  $('#btn-sort').onclick = function () { setList(parse().sort(function (a, b) { return a.localeCompare(b, 'de'); })); };
+  $('#btn-example').onclick = function () { setList(EXAMPLE); };
+  $('#btn-clear').onclick = function () { setList([]); list.focus(); };
+
+  /* ---------- Reiter ---------- */
+  var NEEDS_LIST = { draw: 1, wheel: 1, teams: 1 };
+  function showTab(id) {
+    document.querySelectorAll('.tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.tab === id ? 'true' : 'false'); });
+    ['draw', 'wheel', 'teams', 'nums', 'dice'].forEach(function (k) { $('#p-' + k).hidden = k !== id; });
+    $('#listpanel').hidden = !NEEDS_LIST[id];
+    if (id === 'wheel') drawWheel();
+  }
+  document.querySelectorAll('.tab').forEach(function (t) { t.onclick = function () { showTab(t.dataset.tab); }; });
+
+  /* ---------- Kopieren ---------- */
+  function copy(text, btn) {
+    var old = btn.textContent;
+    function ok() { btn.textContent = 'Kopiert'; setTimeout(function () { btn.textContent = old; }, 1400); }
+    function fallback() {
+      var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); ok(); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
+  }
+
+  /* ---------- Auslosung ---------- */
+  var drawText = '';
+  function showDraw(title, items, pz) {
+    pz = pz || [];
+    $('#res-draw').hidden = false;
+    $('#res-draw-title').textContent = title;
+    var ol = $('#res-draw-list'); ol.innerHTML = '';
+    items.forEach(function (n, i) {
+      var li = document.createElement('li');
+      if (pz[i] && items.length > 1) { var sp = document.createElement('span'); sp.className = 'prize'; sp.textContent = pz[i].replace(/:\s*$/, '') + ':'; li.appendChild(sp); }
+      li.appendChild(document.createTextNode(n));
+      if (i === 0 && items.length === 1) li.className = 'top';
+      ol.appendChild(li);
+    });
+    drawText = items.map(function (n, i) { return (pz[i] ? pz[i].replace(/:\s*$/, '') + ': ' : (i + 1) + '. ') + n; }).join('\n');
+  }
+  /* ---------- Topf, Preise, bisher gezogen ---------- */
+  var drawnList = [];
+  try { drawnList = JSON.parse(localStorage.getItem('zg-drawn') || '[]'); } catch (e) {}
+  function prizes() { return $('#prizes').value.split(/\n/).map(function (s) { return s.trim(); }).filter(Boolean); }
+  function pool() {
+    var names = parse();
+    if (!$('#no-repeat').checked) return names;
+    var used = {}; drawnList.forEach(function (n) { used[n] = (used[n] || 0) + 1; });
+    return names.filter(function (n) { if (used[n]) { used[n]--; return false; } return true; });
+  }
+  function addDrawn(names) {
+    if (!$('#no-repeat').checked) return;
+    drawnList = drawnList.concat(names); saveDrawn();
+  }
+  function saveDrawn() {
+    try { localStorage.setItem('zg-drawn', JSON.stringify(drawnList)); } catch (e) {}
+    $('#drawn-box').hidden = drawnList.length === 0;
+    $('#drawn-count').textContent = drawnList.length;
+    var box = $('#drawn'); box.innerHTML = '';
+    drawnList.forEach(function (n) { var sp = document.createElement('span'); sp.textContent = n; box.appendChild(sp); });
+  }
+  $('#btn-putback').onclick = function () { drawnList = []; saveDrawn(); };
+  function onPrizes() {
+    var p = prizes();
+    $('#winners-field').hidden = p.length > 0;
+    try { localStorage.setItem('zg-prizes', $('#prizes').value); } catch (e) {}
+  }
+  $('#prizes').addEventListener('input', onPrizes);
+  function label(i, total, pz) { return pz[i] ? pz[i] : (total > 1 ? (i + 1) + '. Gewinner' : 'Gewinner'); }
+
+  $('#btn-draw').onclick = function () {
+    var names = pool(), pz = prizes();
+    if (!names.length) { showDraw(parse().length ? 'Alle wurden schon gezogen – „Alle zurück in den Topf“ drücken.' : 'Die Liste ist leer.', []); return; }
+    var k = pz.length ? Math.min(pz.length, names.length) : clamp(int('#winners', 1), 1, names.length);
+    if (!pz.length) $('#winners').value = k;
+    if ($('#use-wheel').checked) { wheelDraw(k, names, pz); return; }
+    var won = shuffle(names).slice(0, k);
+    addDrawn(won); fanfare(); confetti();
+    showDraw(k === 1 ? (pz[0] || 'Gewinner') : (pz.length ? 'Die Gewinner der Preise' : k + ' Gewinner (in Ziehungsreihenfolge)'), won, pz);
+  };
+  $('#btn-order').onclick = function () {
+    var names = parse();
+    if (!names.length) { showDraw('Die Liste ist leer.', []); return; }
+    showDraw('Zufällige Reihenfolge', shuffle(names));
+  };
+  $('#copy-draw').onclick = function () { copy(drawText, this); };
+
+  /* ---------- Glücksrad ---------- */
+  var cv = $('#wheel'), rot = 0, spinning = false;
+  var PAL = ['#f97316', '#2563eb', '#16a34a', '#db2777', '#9333ea', '#0891b2', '#e11d48', '#ca8a04'];
+  function segColor(i, n) {
+    var c = i % PAL.length;
+    if (i === n - 1 && n > 1 && c === 0) c = 4;
+    return PAL[c];
+  }
+  function drawWheel() {
+    var size = cv.clientWidth; if (!size) return;
+    var dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(size * dpr)) { cv.width = Math.round(size * dpr); cv.height = Math.round(size * dpr); }
+    var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, size, size);
+    var cs = getComputedStyle(document.documentElement);
+    var surface = cs.getPropertyValue('--surface').trim() || '#fff';
+    var line = cs.getPropertyValue('--line').trim() || '#ccc';
+    var muted = cs.getPropertyValue('--muted').trim() || '#666';
+    var cx = size / 2, cy = size / 2, R = size / 2 - 8;
+    var names = wheelPool || parse();
+    if (!names.length) {
+      c.beginPath(); c.arc(cx, cy, R, 0, 7); c.strokeStyle = line; c.lineWidth = 3; c.stroke();
+      c.fillStyle = muted; c.font = '600 16px Figtree, sans-serif'; c.textAlign = 'center'; c.fillText('Liste ist leer', cx, cy + 5);
+      return;
+    }
+    var n = names.length, seg = 2 * Math.PI / n;
+    names.forEach(function (nm, i) {
+      c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, R, rot + i * seg, rot + (i + 1) * seg); c.closePath();
+      c.fillStyle = segColor(i, n); c.fill();
+      if (n > 1) { c.strokeStyle = surface; c.lineWidth = 2; c.stroke(); }
+      if (n <= 40) {
+        c.save(); c.translate(cx, cy); c.rotate(rot + (i + 0.5) * seg);
+        c.fillStyle = '#fff'; c.textAlign = 'right'; c.textBaseline = 'middle';
+        var fs = clamp(R * seg * 0.42, 10, 18);
+        c.font = '600 ' + fs + 'px Figtree, sans-serif';
+        var maxW = R * 0.74, label = nm, cut = false;
+        while (c.measureText(label).width > maxW && label.length > 1) { label = label.slice(0, -1); cut = true; }
+        if (cut) label = label.slice(0, -1) + '…';
+        c.fillText(label, R - 14, 0); c.restore();
+      }
+    });
+    // Rand mit Lichtern
+    c.beginPath(); c.arc(cx, cy, R + 3, 0, 7); c.strokeStyle = '#2b2b2b'; c.lineWidth = 8; c.stroke();
+    var bulbs = 24;
+    for (var b = 0; b < bulbs; b++) {
+      var a = b / bulbs * 2 * Math.PI;
+      c.beginPath(); c.arc(cx + Math.cos(a) * (R + 3), cy + Math.sin(a) * (R + 3), 2.6, 0, 7);
+      c.fillStyle = (b + lightPhase) % 2 ? '#fde68a' : '#7c5a1e'; c.fill();
+    }
+    var g = c.createRadialGradient(cx - R * 0.04, cy - R * 0.04, 1, cx, cy, R * 0.13);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#9ca3af');
+    c.beginPath(); c.arc(cx, cy, R * 0.12, 0, 7); c.fillStyle = g; c.fill();
+    c.strokeStyle = '#111'; c.lineWidth = 2; c.stroke();
+  }
+  var lightPhase = 0;
+  window.addEventListener('resize', drawWheel);
+  if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawWheel);
+
+  var winHist = [], wheelPool = null;
+  function spinOnce(names, done) {
+    spinning = true;
+    $('#btn-spin').disabled = true; $('#btn-draw').disabled = true;
+    var n = names.length, seg = 2 * Math.PI / n, TAU = 2 * Math.PI;
+    var w = rnd(n), jitter = (rnd(1000) / 1000 - 0.5) * 0.7;
+    var desired = ((-Math.PI / 2 - (w + 0.5 + jitter) * seg) % TAU + TAU) % TAU;
+    var start = rot;
+    var delta = (((desired - start) % TAU) + TAU) % TAU + TAU * (RM ? 1 : 5 + rnd(3));
+    var dur = RM ? 600 : 5200, t0 = performance.now(), lastSeg = 0;
+    function step(t) {
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 4);
+      rot = start + delta * e;
+      var segNow = Math.floor((rot - start) / seg);
+      if (segNow !== lastSeg) { lastSeg = segNow; tick(); lightPhase++; }
+      drawWheel();
+      if (p < 1) { requestAnimationFrame(step); return; }
+      spinning = false; $('#btn-spin').disabled = false; $('#btn-draw').disabled = false;
+      fanfare(); confetti();
+      done(w);
+    }
+    requestAnimationFrame(step);
+  }
+  function showHist() {
+    var ol = $('#wheel-hist'); ol.hidden = false; ol.innerHTML = '';
+    winHist.slice(0, 10).forEach(function (x) { var li = document.createElement('li'); li.textContent = x; ol.appendChild(li); });
+  }
+  $('#btn-spin').onclick = function () {
+    if (spinning) return;
+    var names = parse();
+    if (names.length < 2) { $('#wheel-winner').textContent = 'Mindestens 2 Einträge nötig'; return; }
+    $('#wheel-winner').textContent = '';
+    spinOnce(names, function (w) {
+      $('#wheel-winner').textContent = names[w];
+      winHist.unshift(names[w]); showHist();
+      if ($('#remove-winner').checked) { names.splice(w, 1); setList(names); }
+    });
+  };
+  // Verlosung mit Glücksrad: wechselt zum Rad und dreht pro Gewinner einmal
+  function wheelDraw(k, from, pz) {
+    if (spinning) return;
+    var pool = from.slice(); if (!pool.length) return;
+    k = clamp(k, 1, pool.length);
+    showTab('wheel');
+    wheelPool = pool.slice();
+    var won = [];
+    $('#wheel-winner').textContent = '';
+    function next() {
+      if (won.length >= k) {
+        if (k > 1) { // Rad am Ende so drehen, dass der Pfeil auf den letzten Gewinner zeigt
+          var idx = pool.indexOf(won[won.length - 1]);
+          if (idx >= 0) rot = -Math.PI / 2 - (idx + 0.5) * (2 * Math.PI / pool.length);
+        }
+        wheelPool = null; drawWheel();
+        var title = k === 1 ? (pz[0] || 'Gewinner') : k + ' Gewinner (in Ziehungsreihenfolge)';
+        addDrawn(won);
+        showDraw(title, won, pz);
+        $('#wheel-winner').textContent = k === 1 ? won[0] : won.map(function (x, i) { return (i + 1) + '. ' + x; }).join('  ·  ');
+        return;
+      }
+      spinOnce(wheelPool, function (w) {
+        var name = wheelPool[w];
+        won.push(name); winHist.unshift(name); showHist();
+        $('#wheel-winner').textContent = (pz[won.length - 1] ? pz[won.length - 1] + ': ' : (k > 1 ? won.length + '. ' : '')) + name;
+        wheelPool.splice(w, 1);
+        setTimeout(next, RM ? 0 : 1100);
+      });
+    }
+    next();
+  }
+
+  /* ---------- Teams ---------- */
+  var teamText = '';
+  $('#btn-teams').onclick = function () {
+    var names = shuffle(parse());
+    var res = $('#res-teams'), grid = $('#res-teams-grid');
+    res.hidden = false; grid.innerHTML = '';
+    if (!names.length) { $('#res-teams-title').textContent = 'Die Liste ist leer.'; teamText = ''; return; }
+    var mode = document.querySelector('input[name=tmode]:checked').value, v = Math.max(1, int('#tval', 2));
+    var k = mode === 'count' ? v : Math.ceil(names.length / v);
+    k = clamp(k, 1, names.length);
+    var teams = []; for (var i = 0; i < k; i++) teams.push([]);
+    names.forEach(function (n, i) { teams[i % k].push(n); });
+    $('#res-teams-title').textContent = k + ' Team' + (k === 1 ? '' : 's') + ' aus ' + names.length + ' Teilnehmern';
+    teamText = teams.map(function (t, i) { return 'Team ' + (i + 1) + ': ' + t.join(', '); }).join('\n');
+    teams.forEach(function (t, i) {
+      var d = document.createElement('div'); d.className = 'team';
+      var h = document.createElement('h3'); h.textContent = 'Team ' + (i + 1); d.appendChild(h);
+      var ul = document.createElement('ul');
+      t.forEach(function (n) { var li = document.createElement('li'); li.textContent = n; ul.appendChild(li); });
+      d.appendChild(ul); grid.appendChild(d);
+    });
+  };
+  $('#copy-teams').onclick = function () { copy(teamText, this); };
+
+  /* ---------- Zahlen ---------- */
+  function pick(min, max, count, uniq, sort) {
+    var range = max - min + 1, out = [];
+    if (uniq) {
+      if (count * 2 > range) { var all = []; for (var i = min; i <= max; i++) all.push(i); out = shuffle(all).slice(0, count); }
+      else { var s = {}; while (out.length < count) { var x = min + rnd(range); if (!s[x]) { s[x] = 1; out.push(x); } } }
+    } else { for (var j = 0; j < count; j++) out.push(min + rnd(range)); }
+    if (sort) out.sort(function (a, b) { return a - b; });
+    return out;
+  }
+  function chips(groups) {
+    var box = $('#res-nums-chips'); box.innerHTML = '';
+    groups.forEach(function (g) {
+      if (g.label) { var l = document.createElement('div'); l.className = 'group-lbl'; l.textContent = g.label; box.appendChild(l); }
+      g.values.forEach(function (v) { var c = document.createElement('span'); c.className = 'chip' + (g.bonus ? ' bonus' : ''); c.textContent = v; box.appendChild(c); });
+    });
+  }
+  function numErr(msg) { var e = $('#nums-err'); e.hidden = !msg; e.textContent = msg || ''; }
+  $('#btn-nums').onclick = function () {
+    $('#res-nums').hidden = false;
+    var a = int('#nmin', 1), b = int('#nmax', 100), count = clamp(int('#ncount', 1), 1, 1000);
+    if (a > b) { var t = a; a = b; b = t; $('#nmin').value = a; $('#nmax').value = b; }
+    var uniq = $('#nuniq').checked;
+    if (uniq && count > b - a + 1) { numErr('Ohne Wiederholung gibt es nur ' + (b - a + 1) + ' mögliche Zahlen. Verkleinere die Anzahl oder erweitere den Bereich.'); $('#res-nums-chips').innerHTML = ''; return; }
+    numErr(''); chips([{ values: pick(a, b, count, uniq, $('#nsort').checked) }]);
+  };
+  $('#btn-lotto').onclick = function () {
+    $('#res-nums').hidden = false; numErr('');
+    chips([{ label: '6 aus 49', values: pick(1, 49, 6, true, true) }, { label: 'Superzahl (0 bis 9)', values: pick(0, 9, 1, false, false), bonus: true }]);
+  };
+  $('#btn-euro').onclick = function () {
+    $('#res-nums').hidden = false; numErr('');
+    chips([{ label: '5 aus 50', values: pick(1, 50, 5, true, true) }, { label: 'Eurozahlen, 2 aus 12', values: pick(1, 12, 2, true, true), bonus: true }]);
+  };
+
+  /* ---------- Würfel & Münze ---------- */
+  function showDice(vals, sum) {
+    var box = $('#dice-chips'); box.innerHTML = '';
+    vals.forEach(function (v) { var c = document.createElement('span'); c.className = 'chip die'; c.textContent = v; box.appendChild(c); });
+    $('#dice-sum').textContent = sum == null ? '' : (vals.length > 1 ? 'Summe: ' + sum : '');
+  }
+  var rolling = false;
+  $('#btn-dice').onclick = function () {
+    if (rolling) return;
+    var n = clamp(int('#dcount', 1), 1, 20), sides = parseInt($('#dsides').value, 10);
+    $('#dcount').value = n;
+    var final = []; for (var i = 0; i < n; i++) final.push(1 + rnd(sides));
+    var sum = final.reduce(function (a, b) { return a + b; }, 0);
+    if (RM) { showDice(final, sum); return; }
+    rolling = true; var f = 0;
+    var iv = setInterval(function () {
+      f++;
+      if (f >= 9) { clearInterval(iv); rolling = false; showDice(final, sum); return; }
+      var tmp = []; for (var k = 0; k < n; k++) tmp.push(1 + rnd(sides));
+      showDice(tmp, null);
+    }, 70);
+  };
+  var tally = { Kopf: 0, Zahl: 0 }, flipping = false;
+  $('#btn-coin').onclick = function () {
+    if (flipping) return;
+    flipping = true;
+    var res = rnd(2) === 0 ? 'Kopf' : 'Zahl', coin = $('#coin');
+    coin.classList.remove('flip'); void coin.offsetWidth; coin.classList.add('flip');
+    setTimeout(function () {
+      coin.textContent = res; tally[res]++; flipping = false;
+      $('#coin-tally').textContent = 'Kopf ' + tally.Kopf + ' · Zahl ' + tally.Zahl;
+    }, RM ? 0 : 700);
+  };
+
+  /* ---------- Ton (wird im Gerät erzeugt, keine Dateien) ---------- */
+  var actx = null;
+  function ac() {
+    if (!$('#sound').checked) return null;
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function tone(freq, start, dur, type, vol) {
+    var a = ac(); if (!a) return;
+    var o = a.createOscillator(), g = a.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.15, a.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + start + dur);
+    o.connect(g); g.connect(a.destination); o.start(a.currentTime + start); o.stop(a.currentTime + start + dur + 0.05);
+  }
+  function tick() { tone(1400, 0, 0.03, 'square', 0.05); var p = $('.pointer'); if (p) { p.classList.add('tick'); setTimeout(function () { p.classList.remove('tick'); }, 60); } }
+  function drum(ms) { // Trommelwirbel: viele kurze, leise Schläge
+    var a = ac(); if (!a) return;
+    for (var t = 0; t < ms / 1000; t += 0.045) {
+      var len = a.sampleRate * 0.04, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      var src = a.createBufferSource(), g = a.createGain(); src.buffer = buf;
+      g.gain.value = 0.05 + 0.12 * (t / (ms / 1000));
+      src.connect(g); g.connect(a.destination); src.start(a.currentTime + t);
+    }
+  }
+  function fanfare() { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, i * 0.12, i === 3 ? 0.7 : 0.18, 'triangle', 0.18); }); }
+
+  /* ---------- Konfetti ---------- */
+  function confetti() {
+    if (RM) return;
+    var cvs = $('#confetti'), x = cvs.getContext('2d'); cvs.hidden = false;
+    var W = cvs.width = innerWidth, H = cvs.height = innerHeight, parts = [];
+    var COLS = ['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ec4899', '#a855f7', '#ffffff'];
+    for (var i = 0; i < 160; i++) parts.push({ x: W / 2 + (Math.random() - 0.5) * W * 0.3, y: H * 0.35, vx: (Math.random() - 0.5) * 16,
+      vy: -Math.random() * 15 - 4, r: Math.random() * 6 + 4, c: COLS[i % COLS.length], a: Math.random() * 6, va: (Math.random() - 0.5) * 0.3 });
+    var t0 = performance.now();
+    (function frame(t) {
+      x.clearRect(0, 0, W, H);
+      parts.forEach(function (p) { p.vy += 0.35; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.a += p.va;
+        x.save(); x.translate(p.x, p.y); x.rotate(p.a); x.fillStyle = p.c; x.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); x.restore(); });
+      if (t - t0 < 3500) requestAnimationFrame(frame); else { x.clearRect(0, 0, W, H); cvs.hidden = true; }
+    })(t0);
+  }
+
+  /* ---------- Show-Modus ---------- */
+  var showBusy = false, showWon = [];
+  function showInfo() {
+    var left = pool().length, pz = prizes(), next = pz[showWon.length];
+    $('#s-prize').textContent = pz.length ? (next ? 'Jetzt geht es um: ' + next : 'Alle Preise sind verlost!') : '';
+    $('#s-info').textContent = left + ' im Topf' + (left === 1 ? '' : '') + ' · Leertaste = ziehen';
+    $('#s-draw').disabled = !left || (pz.length > 0 && !next);
+    var lst = $('#s-list'); lst.innerHTML = '';
+    showWon.forEach(function (w) { var sp = document.createElement('span'); sp.textContent = w; lst.appendChild(sp); });
+  }
+  function openShow() {
+    showWon = []; $('#show').hidden = false;
+    $('#s-name').textContent = '?'; $('#s-name').className = 's-name';
+    showInfo();
+    var el = document.documentElement;
+    try { if (el.requestFullscreen) el.requestFullscreen().catch(function () {}); else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen(); } catch (e) {}
+  }
+  function closeShow() {
+    $('#show').hidden = true;
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+  }
+  function showDrawOne() {
+    if (showBusy) return;
+    var names = pool(), pz = prizes();
+    if (!names.length || (pz.length && showWon.length >= pz.length)) return;
+    showBusy = true; $('#s-draw').disabled = true;
+    var winner = names[rnd(names.length)], el = $('#s-name');
+    var dur = RM ? 300 : 4000, t0 = performance.now(), delay = 50;
+    el.className = 's-name rolling'; drum(dur);
+    (function roll() {
+      var t = performance.now() - t0;
+      if (t < dur) {
+        el.textContent = names[rnd(names.length)];
+        delay = 50 + 300 * Math.pow(t / dur, 2);
+        setTimeout(roll, delay); return;
+      }
+      el.textContent = winner; el.className = 's-name win';
+      var label = pz[showWon.length] ? pz[showWon.length].replace(/:\s*$/, '') + ': ' : '';
+      showWon.push(label + winner); addDrawn([winner]);
+      fanfare(); confetti();
+      showBusy = false; showInfo();
+    })();
+  }
+  $('#btn-show').onclick = openShow;
+  $('#s-close').onclick = closeShow;
+  $('#s-draw').onclick = showDrawOne;
+  document.addEventListener('keydown', function (e) {
+    if ($('#show').hidden) return;
+    if (e.key === 'Escape') closeShow();
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); showDrawOne(); }
+  });
+  document.addEventListener('fullscreenchange', function () { if (!document.fullscreenElement && !$('#show').hidden) { /* Vollbild verlassen: Show bleibt offen */ } });
+
+  /* ---------- Start ---------- */
+  try { var sp = localStorage.getItem('zg-prizes'); if (sp) $('#prizes').value = sp; } catch (e) {}
+  onPrizes(); saveDrawn();
+  var saved = null;
+  try { saved = localStorage.getItem('zg-list'); } catch (e) {}
+  list.value = saved !== null ? saved : EXAMPLE.join('\n');
+  onList();
+  showDice([3, 5], 8);
+  $('#dice-sum').textContent = 'Beispielwurf, drück auf Würfeln';
+  showTab('draw');
+  if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+})();
+</script>
+</body>
+</html>
